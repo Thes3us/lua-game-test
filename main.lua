@@ -33,7 +33,6 @@ function UI.update(width,height)
         y = math.floor(height*2/3),
         w = 200,
         h = 50,
-        is_clicked = false,
         text_x =  math.floor((width-text_enter_w)/2),
         text_y =  math.floor(height*2/3) + math.floor((50-text_enter_h)/2)
     }
@@ -66,28 +65,39 @@ function UI.update(width,height)
         x1 = math.floor(width*2/3),
         y1 = math.floor(height*(2/3+2/9)),
         x2 = width-2,
-        y2 = math.floor(height*(2/3+2/9))  
+        y2 = math.floor(height*(2/3+2/9))
     }
     UI.invLineDivisionV = {
-        x1 = math.floor(width*(2/3+1/6)), 
+        x1 = math.floor(width*(2/3+1/6)),
         y1 = math.floor(height*2/3),
-        x2 = math.floor(width*(2/3+1/6)), 
+        x2 = math.floor(width*(2/3+1/6)),
         y2 = height-2
 
     }
     UI.playerHP = {
         mode = "line",
-        x= width*9/10,
+        x= math.floor(width*9/10),
         y = math.floor(height*1/3*2/3),
         w = 50,
         h = math.floor(height*1/3)
     }
     UI.dealerHP = {
         mode = "line",
-        x = width*1/10-50,
+        x = math.floor(width*1/10-50),
         y = math.floor(height*1/3*2/3),
         w = 50,
         h = math.floor(height*1/3)
+    }
+    UI.table = {
+        x = math.floor(width*1/6),
+        y = math.floor(height*1/2),
+        w = math.floor(width*2/3),
+        h = math.floor(height*1/6)
+    }
+    UI.dealer = {
+        x = math.floor(width*1/2),
+        y = math.floor(height*1/3),
+        radius = 50
     }
 end
 
@@ -98,21 +108,21 @@ local function start_newgame()
     dealer_turn = false
 end
 local function restock_inventory()
-    player.inv.insert(item_pool[math.random(1,#item_pool)])
-    dealer.inv.insert(item_pool[math.random(1,#item_pool)])
+    table.insert(player.inv, item_pool[math.random(1, #item_pool)])
+    table.insert(dealer.inv, item_pool[math.random(1, #item_pool)])
 end
 local function check_wincondition()
     if player.hp <= 0 then
-        return "player"
-    elseif dealer.hp <= 0 then
         return "dealer"
+    elseif dealer.hp <= 0 then
+        return "player"
     else
         return "none"
     end
 end
 local function shotgun_refill()
-    player.shotgun.insert(math.random(0,1))
-    dealer.shotgun.insert(math.random(0,1))
+    table.insert(player.shotgun, math.random(0,1))
+    table.insert(dealer.shotgun, math.random(0,1))
 end
 
 function love.load()
@@ -136,15 +146,15 @@ function love.load()
     start_newgame()
 end
 function love.textinput(t)
-    player.name = player.name .. t
+    if gamestate == "menu" then
+        if utf8.len(player.name) < 20 then
+            player.name = player.name .. t
+        end
+    end
 end
 function love.update(dt)
     if gamestate == "menu" then
         -- menu
-        if love.keyboard.isDown("return") then
-            gamestate = "game"
-            if player.name == "" then player.name = "John" end
-        end
     elseif gamestate == "game" then
         if player_turn then
             -- player turn
@@ -185,7 +195,11 @@ function love.draw()
         love.graphics.rectangle(UI.playerHP.mode, UI.playerHP.x, UI.playerHP.y, UI.playerHP.w, UI.playerHP.h)
         -- dealer hp
         love.graphics.rectangle(UI.dealerHP.mode, UI.dealerHP.x, UI.dealerHP.y, UI.dealerHP.w, UI.dealerHP.h)
-    elseif gamestate == "death" then
+        -- table
+        love.graphics.rectangle("line", UI.table.x, UI.table.y, UI.table.w, UI.table.h)
+        -- dealer 
+        love.graphics.circle("line", UI.dealer.x, UI.dealer.y, UI.dealer.radius)
+    elseif gamestate == "gameover" then
         if check_wincondition() == "player" then
             love.graphics.print("YOU WON!", 320, 200)
         elseif check_wincondition() == "dealer" then
@@ -200,14 +214,22 @@ end
 
 --backspace functionality
 function love.keypressed(key)
-    if key == "backspace" and gamestate == "menu" then
-        -- get the byte offset to the last UTF-8 character in the string.
-        local byteoffset = utf8.offset(player.name, -1)
-
-        if byteoffset then
-            -- remove the last UTF-8 character.
-            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(player.name, 1, -2).
-            player.name = string.sub(player.name, 1, byteoffset - 1)
+    if gamestate == "menu" then
+        if key == "return" then
+            gamestate = "game"
+            if player.name == "" then
+                player.name = "John"
+            end
+        end
+        if key == "backspace" then
+            -- get the byte offset to the last UTF-8 character in the string.
+            local byteoffset = utf8.offset(player.name, -1)
+    
+            if byteoffset then
+                -- remove the last UTF-8 character.
+                -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(player.name, 1, -2).
+                player.name = string.sub(player.name, 1, byteoffset - 1)
+            end
         end
     end
 end
@@ -226,10 +248,10 @@ function love.mousepressed(x,y,button_no)
     end
 end
 function love.resize(w, h)
-    UI.update(w, h)
-    -- 2. Measure the exact pixel width of both pieces of player.name
+    --  Measure the exact pixel width o
     text_title_w = textsize_s36:getWidth(text_title)
     text_name_w = textsize_s24:getWidth(text_name)
     text_enter_w = textsize_s24:getWidth(text_button)
     text_enter_h = textsize_s24:getHeight(text_button)
+    UI.update(w, h)
 end
