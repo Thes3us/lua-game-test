@@ -7,24 +7,23 @@ local gamestate
 local text_title = "BUCKSHOT ROULETTE"
 local text_name = "Enter your name: "
 local text_button = "ENTER"
-local text_turn = "YOUR TURN"
-local text_title_w
-local text_name_w
-local text_enter_w, text_enter_h
-local text_turn_w
+local text_shoot_player = "SHOOT YOURSELF"
+local text_shoot_dealer = "SHOOT DEALER"
+local text_name_w, text_enter_h
 
 local INITIAL_HP = 6
+local MAX_SHELLS = 6
 local player, dealer
-local item_pool = {'painkiller','soda','glass','cuff','saw'}
+local item_pool = {'cig','soda','glass','cuff','saw','sample'}
 local player_turn, dealer_turn
 local UI = {}
 function UI.update(width,height)
     UI.title = {
-        x = math.floor((width-text_title_w)/2),
+        x = 0,
         y = math.floor(height*1/3)
     }
     UI.name = {
-        x = math.floor(width/4),
+        x = 0,
         y = math.floor(height*1/2)
     }
     UI.playerName = {
@@ -37,7 +36,7 @@ function UI.update(width,height)
         y = math.floor(height*2/3),
         w = 200,
         h = 50,
-        text_x =  math.floor((width-text_enter_w)/2),
+        text_x =  0,
         text_y =  math.floor(height*2/3) + math.floor((50-text_enter_h)/2)
     }
     UI.bottomPanel = {
@@ -95,16 +94,16 @@ function UI.update(width,height)
     UI.playerHPbar = {
         mode = "fill",
         x = math.floor(width*9/10),
-        y = math.floor(height*1/3*2/3) + (INITIAL_HP - player.hp) * (math.floor(height*1/3)/6),
+        y = math.floor(height*1/3*2/3) + (INITIAL_HP - player.hp) * (math.floor(height*1/3)/INITIAL_HP),
         w = 50,
-        h = math.floor(height*1/3)/6 * player.hp
+        h = math.floor(height*1/3)/INITIAL_HP * player.hp
     }
     UI.dealerHPbar = {
         mode = "fill",
         x = math.floor(width*1/10-50),
-        y = math.floor(height*1/3*2/3) + (INITIAL_HP - dealer.hp) * (math.floor(height*1/3)/6),
+        y = math.floor(height*1/3*2/3) + (INITIAL_HP - dealer.hp) * (math.floor(height*1/3)/INITIAL_HP),
         w = 50,
-        h = math.floor(height*1/3)/6 * dealer.hp
+        h = math.floor(height*1/3)/INITIAL_HP * dealer.hp
     }
     UI.table = {
         mode = "line",
@@ -118,6 +117,20 @@ function UI.update(width,height)
         x = math.floor(width*1/2),
         y = math.floor(height*1/3),
         radius = 50
+    }
+    UI.shootplayer = {
+        mode = "line",
+        x = math.floor(width*(1/3+1/18)),
+        y = math.floor(height*(2/3+1/36)),
+        w = math.floor(width*(1/3*2/3)),
+        h = math.floor(height*(1/3*1/3*1/2))
+    }
+    UI.shootdealer = {
+        mode = "line",
+        x = math.floor(width*(1/3+1/18)),
+        y = math.floor(height - height*(1/3*1/3*1/2) - height*(1/36)),
+        w = math.floor(width*(1/3*2/3)),
+        h = math.floor(height*(1/3*1/3*1/2))
     }
     UI.shotgun = {
         x_offset = 10,
@@ -133,24 +146,34 @@ function UI.update(width,height)
         mode = "line",
         x = UI.shotgun.x + UI.shotgun.x_offset,
         y = UI.shotgun.y + UI.shotgun.y_offset,
-        w = (UI.shotgun.w-2 * UI.shotgun.x_offset - (#player.shotgun-1)*UI.shotgun.padding)/#player.shotgun,
+        w = (UI.shotgun.w-2 * UI.shotgun.x_offset - (MAX_SHELLS-1)*UI.shotgun.padding)/MAX_SHELLS,
         h = UI.shotgun.h - (2 * UI.shotgun.y_offset)
     }
     UI.turn = {
-        x = math.floor((width-text_turn_w)/2),
+        x = 0,
         y = 50
+    }
+    UI.playerInv = {
+        mode = "line",
+        x = math.floor(width*2/3),
+        y = math.floor(height*2/3),
+        w = math.floor(width*1/3*1/2),
+        h = math.floor(height*1/3*1/3)
+    }
+    UI.dealerInv = {
+        mode = "line",
+        x = UI.table.x,
+        y = UI.table.y,
+        w = UI.table.w/6,
+        h = UI.table.h
     }
 end
 
-local function start_newgame()
-    player = {hp = 3, shotgun = {}, dmg = 1, inv = {}, name = ""}
-    dealer = {hp = INITIAL_HP, shotgun = {}, dmg = 1, inv = {}}
-    player_turn = true
-    dealer_turn = false
-end
 local function restock_inventory()
-    table.insert(player.inv, item_pool[math.random(1, #item_pool)])
-    table.insert(dealer.inv, item_pool[math.random(1, #item_pool)])
+    local rand_1 = math.random(1, #item_pool)
+    local rand_2 = math.random(1, #item_pool)
+    player.inv[item_pool[rand_1]] = player.inv[item_pool[rand_1]] + 1
+    dealer.inv[item_pool[rand_2]] = dealer.inv[item_pool[rand_2]] + 1
 end
 local function check_wincondition()
     if player.hp <= 0 then
@@ -165,17 +188,24 @@ local function shotgun_refill()
     table.insert(player.shotgun, math.random(0,1))
     table.insert(dealer.shotgun, math.random(0,1))
 end
-local function updateTurn(text)
-    text_turn = text
-    text_turn_w = textsize_s36:getWidth(text_turn)
-    WIDTH = love.graphics.getWidth()
-    UI.turn.x = math.floor((WIDTH-text_turn_w)/2)
+local function start_newgame()
+    player = {hp = INITIAL_HP, shotgun = {}, dmg = 1, inv = {["cig"] = 0, ["soda"] = 0, ["glass"] = 0, ["cuff"] = 0, ["saw"] = 0, ["sample"] = 0}, name = ""}
+    dealer = {hp = INITIAL_HP, shotgun = {}, dmg = 1, inv = {["cig"] = 0, ["soda"] = 0, ["glass"] = 0, ["cuff"] = 0, ["saw"] = 0, ["sample"] = 0}}
+    player_turn = true
+    dealer_turn = false
+    for i = 1,2 do
+        restock_inventory()
+    end
+    for i = 1,4 do
+        shotgun_refill()
+    end
 end
 function love.load()
     WIDTH = love.graphics.getWidth()
     HEIGHT = love.graphics.getHeight()
     monofont = love.graphics.newFont("RobotoMono.ttf", 18)
     love.graphics.setFont(monofont)
+    monofont:setFilter("nearest", "nearest")
     love.graphics.setBackgroundColor(0.05,0.05,0.05)
     love.graphics.setColor(1,1,1)
     love.graphics.setLineWidth(2)
@@ -183,11 +213,8 @@ function love.load()
     gamestate = "menu"
     textsize_s24 = love.graphics.newFont(24)
     textsize_s36 = love.graphics.newFont(36)
-    text_title_w = textsize_s36:getWidth(text_title)
     text_name_w = textsize_s24:getWidth(text_name)
-    text_enter_w = textsize_s24:getWidth(text_button)
     text_enter_h = textsize_s24:getHeight(text_button)
-    text_turn_w = textsize_s36:getWidth(text_turn)
     love.keyboard.setKeyRepeat(true)
     start_newgame()
     UI.update(WIDTH, HEIGHT)
@@ -202,22 +229,12 @@ end
 function love.update(dt)
     if gamestate == "menu" then
         -- menu
-    elseif gamestate == "game" then 
+    elseif gamestate == "game" then
         if player_turn then
             -- player turn
-            if text_turn == "DEALER'S TURN" then
-                updateTurn("YOUR TURN")
-                
-            end
-
         elseif dealer_turn then
             -- dealer turn
-            if text_turn == "YOUR TURN" then
-                updateTurn("DEALER'S TURN")
-            end
         end
-
-
     elseif gamestate == "gameover" then
         -- gameover
     end
@@ -228,17 +245,17 @@ function love.draw()
         love.graphics.push("all")
         -- BUCKSHOT ROULETTE
         love.graphics.setFont(textsize_s36)
-        love.graphics.print(text_title, UI.title.x, UI.title.y)
+        love.graphics.printf(text_title, UI.title.x, UI.title.y, WIDTH , "center")
         -- Enter your name: 
         love.graphics.setFont(textsize_s24)
-        love.graphics.print(text_name, UI.name.x, UI.name.y)
+        love.graphics.printf(text_name, UI.name.x, UI.name.y, WIDTH*3/4, "center")
         -- Name space
-        love.graphics.printf(player.name, UI.playerName.x, UI.playerName.y, UI.playerName.w)
+        love.graphics.printf(player.name, UI.playerName.x, UI.playerName.y, UI.playerName.w, "left")
         -- ENTER button
         love.graphics.setColor(0.2,0.2,0.2)
         love.graphics.rectangle("fill", UI.button.x, UI.button.y, UI.button.w, UI.button.h)
         love.graphics.setColor(1,1,1)
-        love.graphics.print(text_button, UI.button.text_x, UI.button.text_y)
+        love.graphics.printf(text_button, UI.button.text_x, UI.button.text_y, WIDTH, "center")
         love.graphics.pop()
     elseif gamestate == "game" then
         love.graphics.push("all")
@@ -260,6 +277,9 @@ function love.draw()
         -- table
         love.graphics.setColor(1,1,1,1)
         love.graphics.rectangle(UI.table.mode, UI.table.x, UI.table.y, UI.table.w, UI.table.h)
+        for i = 0,5 do
+            love.graphics.printf(item_pool[i+1].."\n x"..dealer.inv[item_pool[i+1]], UI.dealerInv.x + (i * UI.dealerInv.w), UI.dealerInv.y + (UI.dealerInv.h-48)/2,UI.dealerInv.w, "center")
+        end
         -- dealer 
         love.graphics.setColor(1,0,0,0.7)
         love.graphics.setLineWidth(6)
@@ -267,9 +287,14 @@ function love.draw()
         love.graphics.circle(UI.dealer.mode, UI.dealer.x, UI.dealer.y, UI.dealer.radius)
         love.graphics.setLineWidth(2)
         love.graphics.setLineStyle("rough")
-
-        -- shotgun
         love.graphics.setColor(1,1,1,1)
+        -- shoot player
+        love.graphics.rectangle(UI.shootplayer.mode, UI.shootplayer.x, UI.shootplayer.y, UI.shootplayer.w, UI.shootplayer.h)
+        love.graphics.printf(text_shoot_player, UI.shootplayer.x, UI.shootplayer.y + (UI.shootplayer.h-24)/2, UI.shootplayer.w, "center")
+        -- shoot dealer
+        love.graphics.rectangle(UI.shootdealer.mode, UI.shootdealer.x, UI.shootdealer.y, UI.shootdealer.w, UI.shootdealer.h)
+        love.graphics.printf(text_shoot_dealer, UI.shootdealer.x, UI.shootdealer.y + (UI.shootdealer.h-24)/2, UI.shootdealer.w, "center")
+        -- shotgun
         love.graphics.rectangle(UI.shotgun.mode, UI.shotgun.x, UI.shotgun.y, UI.shotgun.w, UI.shotgun.h)
         -- pellets
         for i = 1, #player.shotgun do
@@ -283,13 +308,23 @@ function love.draw()
         else
             love.graphics.setColor(1,0,0,0.7)
         end
-        love.graphics.print((player_turn) and "YOUR TURN" or "DEALER'S TURN", UI.turn.x, UI.turn.y)
+        love.graphics.printf((player_turn) and "YOUR TURN" or "DEALER'S TURN", UI.turn.x, UI.turn.y, WIDTH, "center")
+        -- render items
+        love.graphics.setFont(monofont)
+        love.graphics.setColor(1,1,1,1)
+        for i = 0,5 do
+            local rem = i % 2
+            local quot = math.floor(i / 2)
+            love.graphics.rectangle(UI.playerInv.mode, UI.playerInv.x + (rem * UI.playerInv.w) , UI.playerInv.y + (quot * UI.playerInv.h), UI.playerInv.w, UI.playerInv.h)
+            love.graphics.printf(item_pool[i+1].." x"..player.inv[item_pool[i+1]], UI.playerInv.x + (rem * UI.playerInv.w), UI.playerInv.y + (quot * UI.playerInv.h) + (UI.playerInv.h-24)/2,UI.playerInv.w, "center")
+        end
         love.graphics.pop()
     elseif gamestate == "gameover" then
         love.graphics.push("all")
-        if check_wincondition() == "player" then
+        local winner = check_wincondition()
+        if winner == "player" then
             love.graphics.print("YOU WON!", 320, 200)
-        elseif check_wincondition() == "dealer" then
+        elseif winner == "dealer" then
             love.graphics.print("YOU LOST!", 320, 200)
         end
         love.graphics.setFont(textsize_s24)
@@ -342,6 +377,9 @@ function love.mousepressed(x,y,button_no)
         if button_no == 1 then
             if x >= UI.button.x and x <= UI.button.x + UI.button.w and y >= UI.button.y and y <= UI.button.y + UI.button.h then
                 gamestate = "game"
+                if player.name == "" then
+                player.name = "John"
+            end
             end
         end
     elseif gamestate == "game" then
@@ -351,10 +389,7 @@ function love.mousepressed(x,y,button_no)
     end
 end
 function love.resize(w, h)
-    --  Measure the exact pixel width o
-    text_title_w = textsize_s36:getWidth(text_title)
-    text_name_w = textsize_s24:getWidth(text_name)
-    text_enter_w = textsize_s24:getWidth(text_button)
-    text_enter_h = textsize_s24:getHeight(text_button)
+    WIDTH = love.graphics.getWidth()
+    HEIGHT = love.graphics.getHeight()
     UI.update(w, h)
 end
