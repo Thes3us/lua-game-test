@@ -13,6 +13,7 @@ local text_name_w, text_enter_h
 
 local INITIAL_HP = 6
 local MAX_SHELLS = 6
+local chat = {"init"}
 local player, dealer
 local item_pool = {'cig','soda','glass','cuff','saw','sample'}
 local player_turn, dealer_turn
@@ -193,17 +194,17 @@ local function start_newgame()
     dealer = {hp = INITIAL_HP, shotgun = {}, dmg = 1, inv = {["cig"] = 0, ["soda"] = 0, ["glass"] = 0, ["cuff"] = 0, ["saw"] = 0, ["sample"] = 0}}
     player_turn = true
     dealer_turn = false
-    for i = 1,2 do
+    for i = 1,10 do
         restock_inventory()
     end
-    for i = 1,4 do
+    for i = 1,MAX_SHELLS do
         shotgun_refill()
     end
 end
 function love.load()
     WIDTH = love.graphics.getWidth()
     HEIGHT = love.graphics.getHeight()
-    monofont = love.graphics.newFont("RobotoMono.ttf", 18)
+    monofont = love.graphics.newFont("RobotoMono.ttf",18)
     love.graphics.setFont(monofont)
     monofont:setFilter("nearest", "nearest")
     love.graphics.setBackgroundColor(0.05,0.05,0.05)
@@ -211,8 +212,8 @@ function love.load()
     love.graphics.setLineWidth(2)
     love.graphics.setLineStyle("rough")
     gamestate = "menu"
-    textsize_s24 = love.graphics.newFont(24)
-    textsize_s36 = love.graphics.newFont(36)
+    textsize_s24 = love.graphics.newFont("RobotoMono.ttf",24)
+    textsize_s36 = love.graphics.newFont("RobotoMono.ttf",36)
     text_name_w = textsize_s24:getWidth(text_name)
     text_enter_h = textsize_s24:getHeight(text_button)
     love.keyboard.setKeyRepeat(true)
@@ -371,11 +372,21 @@ function love.keypressed(key)
         end
     end
 end
+-- to fetch specific item button position
+local function getItemCord(i)
+    local rem = i % 2
+    local quot = math.floor(i / 2)
+    local x = UI.playerInv.x + (rem * UI.playerInv.w)
+    local y = UI.playerInv.y + (quot * UI.playerInv.h)
+    local w = UI.playerInv.w
+    local h = UI.playerInv.h
+    return x,y,w,h
+end 
 --enter button functionality
-function love.mousepressed(x,y,button_no)
+function love.mousepressed(mx,my,button_no)
     if gamestate == "menu" then
         if button_no == 1 then
-            if x >= UI.button.x and x <= UI.button.x + UI.button.w and y >= UI.button.y and y <= UI.button.y + UI.button.h then
+            if mx >= UI.button.x and mx <= UI.button.x + UI.button.w and my >= UI.button.y and my <= UI.button.y + UI.button.h then
                 gamestate = "game"
                 if player.name == "" then
                 player.name = "John"
@@ -384,7 +395,106 @@ function love.mousepressed(x,y,button_no)
         end
     elseif gamestate == "game" then
         if button_no == 1 then
-            
+            if gamestate == "game" then
+                if player_turn then
+                    -- inventory usecases
+                    -- cig, soda, glass, cuff, saw, sample 
+                    -- 1
+                    local x, y, w, h 
+                    x, y, w, h = getItemCord(0)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- cig used
+                        if player.inv["cig"] > 0 then
+                            if player.hp < INITIAL_HP then
+                                player.hp = player.hp + 1
+                                table.insert(chat, player.name.." used a cig and gained 1 HP")
+                                player.inv["cig"] = player.inv["cig"] - 1
+                                print(chat[#chat])
+                            else
+                                table.insert(chat, player.name.." is already at max HP")
+                                print(chat[#chat])
+                            end
+                        else
+                            table.insert(chat, player.name.." tried to use a cig but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                    x, y, w, h = getItemCord(1)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- soda used
+                        if player.inv["soda"] > 0 then
+                            if #player.shotgun > 0 then 
+                                local shucked_shell = table.remove(player.shotgun)
+                                table.insert(chat, player.name.." used a soda and shucked a " .. shucked_shell)
+                                player.inv["soda"] = player.inv["soda"] - 1
+                                print(chat[#chat])
+                            else
+                                table.insert(chat, player.name.." has no shells to shuck")
+                                print(chat[#chat])
+                            end
+                        else
+                            table.insert(chat, player.name.." tried to use a soda but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                    x, y, w, h = getItemCord(2)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- glass used
+                        if player.inv["glass"] > 0 then
+                            local inspected_shell = player.shotgun[#player.shotgun]
+                            table.insert(chat, player.name.." used a glass and inspected a " .. inspected_shell)
+                            player.inv["glass"] = player.inv["glass"] - 1
+                            print(chat[#chat])
+                        else
+                            table.insert(chat, player.name.." tried to use a glass but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                    x, y, w, h = getItemCord(3)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- cuff used
+                        if player.inv["cuff"] > 0 then
+                            table.insert(chat, player.name.." used a cuff and cuffed the dealer for 1 turn")
+                            dealer_turn = false
+                            player.inv["cuff"] = player.inv["cuff"] - 1
+                            print(chat[#chat])
+                        else
+                            table.insert(chat, player.name.." tried to use a cuff but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                    x, y, w, h = getItemCord(4)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- saw used
+                        if player.inv["saw"] > 0 then
+                            if player.dmg == 1 then 
+                                table.insert(chat, player.name.." sawed their shotgun, next shot deals twice damage")
+                                player.inv["saw"] = player.inv["saw"] - 1
+                                print(chat[#chat])
+                                player.dmg = 2
+                            else
+                                table.insert(chat, player.name.." tried to use a saw but their shotgun is already sawed")
+                                print(chat[#chat])
+                            end
+                        else
+                            table.insert(chat, player.name.." tried to use a saw but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                    x, y, w, h = getItemCord(5)
+                    if mx > x and mx < x + w and my > y and my < y + h then
+                        -- sample used
+                        if player.inv["sample"] > 0 then
+                            table.insert(chat, player.name.." work in progress: used a sample")
+                            player.inv["sample"] = player.inv["sample"] - 1
+                            print(chat[#chat])
+                        else
+                            table.insert(chat, player.name.." tried to use a sample but has none left")
+                            print(chat[#chat])
+                        end
+                    end
+                end
+            end
         end
     end
 end
