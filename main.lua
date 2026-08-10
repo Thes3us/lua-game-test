@@ -7,9 +7,13 @@ local gamestate
 local text_title = "BUCKSHOT ROULETTE"
 local text_name = "Enter your name: "
 local text_button = "ENTER"
+local text_turn = "YOUR TURN"
 local text_title_w
 local text_name_w
 local text_enter_w, text_enter_h
+local text_turn_w
+
+local INITIAL_HP = 6
 local player, dealer
 local item_pool = {'painkiller','soda','glass','cuff','saw'}
 local player_turn, dealer_turn
@@ -24,8 +28,8 @@ function UI.update(width,height)
         y = math.floor(height*1/2)
     }
     UI.playerName = {
-        x = math.floor(width/4) + text_name_w, 
-        y = math.floor(height*1/2), 
+        x = math.floor(width/4) + text_name_w,
+        y = math.floor(height*1/2),
         w = width-(math.floor(width/4)+text_name_w)-50
     }
     UI.button = {
@@ -76,7 +80,7 @@ function UI.update(width,height)
     }
     UI.playerHP = {
         mode = "line",
-        x= math.floor(width*9/10),
+        x = math.floor(width*9/10),
         y = math.floor(height*1/3*2/3),
         w = 50,
         h = math.floor(height*1/3)
@@ -88,22 +92,59 @@ function UI.update(width,height)
         w = 50,
         h = math.floor(height*1/3)
     }
+    UI.playerHPbar = {
+        mode = "fill",
+        x = math.floor(width*9/10),
+        y = math.floor(height*1/3*2/3) + (INITIAL_HP - player.hp) * (math.floor(height*1/3)/6),
+        w = 50,
+        h = math.floor(height*1/3)/6 * player.hp
+    }
+    UI.dealerHPbar = {
+        mode = "fill",
+        x = math.floor(width*1/10-50),
+        y = math.floor(height*1/3*2/3) + (INITIAL_HP - dealer.hp) * (math.floor(height*1/3)/6),
+        w = 50,
+        h = math.floor(height*1/3)/6 * dealer.hp
+    }
     UI.table = {
+        mode = "line",
         x = math.floor(width*1/6),
         y = math.floor(height*1/2),
         w = math.floor(width*2/3),
         h = math.floor(height*1/6)
     }
     UI.dealer = {
+        mode = "line",
         x = math.floor(width*1/2),
         y = math.floor(height*1/3),
         radius = 50
     }
+    UI.shotgun = {
+        x_offset = 10,
+        y_offset = 10,
+        padding = 5,
+        mode = "line",
+        x = width*(1/3+1/18),
+        y = height*(2/3+1/9),
+        w = width*(1/3*2/3),
+        h = height*(1/3*1/3)
+    }
+    UI.pellets = {
+        mode = "line",
+        x = UI.shotgun.x + UI.shotgun.x_offset,
+        y = UI.shotgun.y + UI.shotgun.y_offset,
+        w = (UI.shotgun.w-2 * UI.shotgun.x_offset - (#player.shotgun-1)*UI.shotgun.padding)/#player.shotgun,
+        h = UI.shotgun.h - (2 * UI.shotgun.y_offset)
+    }
+    UI.turn = {
+        x = math.floor((width-text_turn_w)/2),
+        y = 50
+    }
 end
 
 local function start_newgame()
-    player = {hp = 6, shotgun = {}, dmg = 1, inv = {}, name = ""}
-    dealer = {hp = 6, shotgun = {}, dmg = 1, inv = {}}
+    player = {hp = 3, shotgun = {}, dmg = 1, inv = {}, name = ""}
+    dealer = {hp = INITIAL_HP, shotgun = {}, dmg = 1, inv = {}}
     player_turn = true
     dealer_turn = false
 end
@@ -124,7 +165,12 @@ local function shotgun_refill()
     table.insert(player.shotgun, math.random(0,1))
     table.insert(dealer.shotgun, math.random(0,1))
 end
-
+local function updateTurn(text)
+    text_turn = text
+    text_turn_w = textsize_s36:getWidth(text_turn)
+    WIDTH = love.graphics.getWidth()
+    UI.turn.x = math.floor((WIDTH-text_turn_w)/2)
+end
 function love.load()
     WIDTH = love.graphics.getWidth()
     HEIGHT = love.graphics.getHeight()
@@ -141,9 +187,10 @@ function love.load()
     text_name_w = textsize_s24:getWidth(text_name)
     text_enter_w = textsize_s24:getWidth(text_button)
     text_enter_h = textsize_s24:getHeight(text_button)
-    UI.update(WIDTH, HEIGHT)
+    text_turn_w = textsize_s36:getWidth(text_turn)
     love.keyboard.setKeyRepeat(true)
     start_newgame()
+    UI.update(WIDTH, HEIGHT)
 end
 function love.textinput(t)
     if gamestate == "menu" then
@@ -155,10 +202,21 @@ end
 function love.update(dt)
     if gamestate == "menu" then
         -- menu
-    elseif gamestate == "game" then
+    elseif gamestate == "game" then 
         if player_turn then
             -- player turn
+            if text_turn == "DEALER'S TURN" then
+                updateTurn("YOUR TURN")
+                
+            end
+
+        elseif dealer_turn then
+            -- dealer turn
+            if text_turn == "YOUR TURN" then
+                updateTurn("DEALER'S TURN")
+            end
         end
+
 
     elseif gamestate == "gameover" then
         -- gameover
@@ -166,8 +224,8 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.push("all")
     if gamestate == "menu" then
+        love.graphics.push("all")
         -- BUCKSHOT ROULETTE
         love.graphics.setFont(textsize_s36)
         love.graphics.print(text_title, UI.title.x, UI.title.y)
@@ -181,8 +239,9 @@ function love.draw()
         love.graphics.rectangle("fill", UI.button.x, UI.button.y, UI.button.w, UI.button.h)
         love.graphics.setColor(1,1,1)
         love.graphics.print(text_button, UI.button.text_x, UI.button.text_y)
-
+        love.graphics.pop()
     elseif gamestate == "game" then
+        love.graphics.push("all")
         love.graphics.rectangle("line", UI.bottomPanel.x, UI.bottomPanel.y, UI.bottomPanel.w, UI.bottomPanel.h)
         -- line divisions
         love.graphics.line(UI.lineDivisionOne.x1, UI.lineDivisionOne.y1, UI.lineDivisionOne.x2 ,UI.lineDivisionOne.y2)
@@ -193,23 +252,51 @@ function love.draw()
         love.graphics.line(UI.invLineDivisionV.x1, UI.invLineDivisionV.y1, UI.invLineDivisionV.x2, UI.invLineDivisionV.y2)
         -- your hp
         love.graphics.rectangle(UI.playerHP.mode, UI.playerHP.x, UI.playerHP.y, UI.playerHP.w, UI.playerHP.h)
+        love.graphics.rectangle(UI.playerHPbar.mode, UI.playerHPbar.x, UI.playerHPbar.y, UI.playerHPbar.w, UI.playerHPbar.h)
         -- dealer hp
+        love.graphics.setColor(1,0,0,0.7)
         love.graphics.rectangle(UI.dealerHP.mode, UI.dealerHP.x, UI.dealerHP.y, UI.dealerHP.w, UI.dealerHP.h)
+        love.graphics.rectangle(UI.dealerHPbar.mode, UI.dealerHPbar.x, UI.dealerHPbar.y, UI.dealerHPbar.w, UI.dealerHPbar.h)
         -- table
-        love.graphics.rectangle("line", UI.table.x, UI.table.y, UI.table.w, UI.table.h)
+        love.graphics.setColor(1,1,1,1)
+        love.graphics.rectangle(UI.table.mode, UI.table.x, UI.table.y, UI.table.w, UI.table.h)
         -- dealer 
-        love.graphics.circle("line", UI.dealer.x, UI.dealer.y, UI.dealer.radius)
+        love.graphics.setColor(1,0,0,0.7)
+        love.graphics.setLineWidth(6)
+        love.graphics.setLineStyle("smooth")
+        love.graphics.circle(UI.dealer.mode, UI.dealer.x, UI.dealer.y, UI.dealer.radius)
+        love.graphics.setLineWidth(2)
+        love.graphics.setLineStyle("rough")
+
+        -- shotgun
+        love.graphics.setColor(1,1,1,1)
+        love.graphics.rectangle(UI.shotgun.mode, UI.shotgun.x, UI.shotgun.y, UI.shotgun.w, UI.shotgun.h)
+        -- pellets
+        for i = 1, #player.shotgun do
+            local offset = (UI.pellets.w + UI.shotgun.padding) * (i-1)
+            love.graphics.rectangle(UI.pellets.mode, UI.pellets.x + offset, UI.pellets.y, UI.pellets.w, UI.pellets.h)
+        end
+        -- turn indicator
+        love.graphics.setFont(textsize_s36)
+        if player_turn then
+            love.graphics.setColor(1,1,1,1)
+        else
+            love.graphics.setColor(1,0,0,0.7)
+        end
+        love.graphics.print((player_turn) and "YOUR TURN" or "DEALER'S TURN", UI.turn.x, UI.turn.y)
+        love.graphics.pop()
     elseif gamestate == "gameover" then
+        love.graphics.push("all")
         if check_wincondition() == "player" then
             love.graphics.print("YOU WON!", 320, 200)
         elseif check_wincondition() == "dealer" then
             love.graphics.print("YOU LOST!", 320, 200)
         end
-        
+        love.graphics.setFont(textsize_s24)
         love.graphics.print("Press 'R' to Play Again", 280, 280)
         love.graphics.print("Press 'M' for Main Menu", 280, 310)
+        love.graphics.pop()
     end
-    love.graphics.pop()
 end
 
 --backspace functionality
@@ -230,6 +317,22 @@ function love.keypressed(key)
                 -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(player.name, 1, -2).
                 player.name = string.sub(player.name, 1, byteoffset - 1)
             end
+        end
+    elseif gamestate == "game" then
+        if key == "space" then
+            player_turn = not player_turn
+            dealer_turn = not dealer_turn
+        end
+        if key == "x" then
+            gamestate = "gameover"
+        end
+    elseif gamestate == "gameover" then
+        if key == "r" then
+            start_newgame()
+            gamestate = "game"
+        elseif key == "m" then
+            start_newgame()
+            gamestate = "menu"
         end
     end
 end
